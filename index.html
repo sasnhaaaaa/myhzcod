@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реферальна система з адміном</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input {
+            margin: 10px 0;
+            padding: 10px;
+            width: 200px;
+        }
+        button {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Страница входа -->
+    <div id="loginPage">
+        <h1>Вхід</h1>
+        <form id="loginForm">
+            <label for="loginUsername">Ім'я користувача:</label>
+            <input type="text" id="loginUsername" required>
+            <label for="loginPassword">Пароль:</label>
+            <input type="password" id="loginPassword" required>
+            <button type="submit">Увійти</button>
+        </form>
+        <button id="goToRegisterPage">Зареєструватися</button>
+    </div>
+
+    <!-- Страница регистрации -->
+    <div id="registrationPage" class="hidden">
+        <h1>Реєстрація користувача</h1>
+        <form id="registerForm">
+            <label for="username">Ім'я користувача:</label>
+            <input type="text" id="username" required>
+            <label for="password">Пароль:</label>
+            <input type="password" id="password" required>
+            <label for="referralCode">Реферальний код (необов'язково):</label>
+            <input type="text" id="referralCode">
+            <button type="submit">Зареєструватися</button>
+        </form>
+        <button id="goToLoginPage">Увійти</button>
+    </div>
+
+    <!-- Страница с реферальным кодом -->
+    <div id="referralPage" class="hidden">
+        <h1>Мій реферальний код</h1>
+        <p>Ваш реферальний код: <span id="userReferralCode"></span></p>
+        <h2>Статистика</h2>
+        <p>Кількість людей, які зареєструвалися за вашим кодом: <span id="referralCount">0</span></p>
+        <p>Ваш баланс: <span id="userBalance">0</span> грн</p>
+        <button id="logoutButton">Вийти</button>
+    </div>
+
+    <!-- Страница админа -->
+    <div id="adminPage" class="hidden">
+        <h1>Адмін панель</h1>
+        <h2>Список користувачів</h2>
+        <ul id="userList"></ul>
+        <button id="logoutAdminButton">Вийти з адмінки</button>
+    </div>
+
+    <script>
+        const adminUsername = 'admin228';
+        const adminPassword = 'admin228';
+
+        // Функция для сохранения пользователей в localStorage
+        function saveUsers(users) {
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+
+        // Функция для загрузки пользователей из localStorage
+        function loadUsers() {
+            const users = localStorage.getItem('users');
+            return users ? JSON.parse(users) : [];
+        }
+
+        // Страница входа
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (username === adminUsername && password === adminPassword) {
+                // Успешный вход в админку
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('adminPage').classList.remove('hidden');
+                loadAdminPage();
+            } else {
+                const users = loadUsers();
+                const user = users.find(user => user.username === username && user.password === password);
+
+                if (user) {
+                    // Успешный вход
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('referralPage').classList.remove('hidden');
+                    document.getElementById('userReferralCode').innerText = user.referralCode;
+                    document.getElementById('referralCount').innerText = user.referredBy.length;
+                    document.getElementById('userBalance').innerText = user.balance;
+                } else {
+                    alert('Невірне ім\'я користувача або пароль');
+                }
+            }
+        });
+
+        // Страница регистрации
+        document.getElementById('registerForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const referralCode = document.getElementById('referralCode').value;
+            const users = loadUsers();
+
+            // Проверка, существует ли пользователь с таким именем
+            if (users.some(user => user.username === username)) {
+                alert('Користувач з таким ім\'ям вже існує');
+                return;
+            }
+
+            // Генерация нового реферального кода
+            const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+            // Создание нового пользователя
+            const newUser = {
+                username: username,
+                password: password,
+                referralCode: newReferralCode,
+                referredBy: [],
+                balance: 0  // Новый пользователь начинает с 0 баланса
+            };
+
+            // Если введен реферальный код, начисляем бонус рефереру
+            if (referralCode) {
+                const referrer = users.find(user => user.referralCode === referralCode);
+                if (referrer) {
+                    referrer.referredBy.push(newUser.username); // Добавляем нового пользователя как реферала
+                    referrer.balance += 10; // Начисляем 10 грн за реферала
+                    saveUsers(users); // Сохраняем обновленных пользователей
+                } else {
+                    alert('Невірний реферальний код');
+                    return;
+                }
+            }
+
+            // Добавляем нового пользователя в список
+            users.push(newUser);
+            saveUsers(users);
+
+            alert('Ви успішно зареєструвались! Ваш реферальний код: ' + newReferralCode);
+
+            // Переход на страницу входа
+            document.getElementById('registrationPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+        });
+
+        // Переход на страницу регистрации
+        document.getElementById('goToRegisterPage').addEventListener('click', function () {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('registrationPage').classList.remove('hidden');
+        });
+
+        // Переход на страницу входа
+        document.getElementById('goToLoginPage').addEventListener('click', function () {
+            document.getElementById('registrationPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+        });
+
+        // Выход из аккаунта
+        document.getElementById('logoutButton').addEventListener('click', function () {
+            document.getElementById('referralPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+        });
+
+        // Загрузка страницы админки
+        function loadAdminPage() {
+            const users = loadUsers();
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';  // Очищаем текущий список
+
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.textContent = `${user.username} (Реф. код: ${user.referralCode}, Баланс: ${user.balance})`;
+                userList.appendChild(li);
+            });
+        }
+
+        // Выход из админки
+        document.getElementById('logoutAdminButton').addEventListener('click', function () {
+            document.getElementById('adminPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+        });
+    </script>
+
+</body>
+</html>
